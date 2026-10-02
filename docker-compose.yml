@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # Primary Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: linkora_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-linkora_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linkora_secure_password_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-linkora_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-linkora_admin} -d ${POSTGRES_DB:-linkora_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - linkora_network
+
+  # In-Memory Cache & Message Broker
+  redis:
+    image: redis:7.2-alpine
+    container_name: linkora_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-linkora_redis_secret}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-linkora_redis_secret}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - linkora_network
+
+  # NestJS Core Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: linkora_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-linkora_admin}:${POSTGRES_PASSWORD:-linkora_secure_password_2026}@postgres:5432/${POSTGRES_DB:-linkora_db}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-linkora_redis_secret}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_linkora_jwt_token_2026}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - linkora_network
+
+  # Next.js 15 Frontend SaaS Client
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: linkora_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - linkora_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  linkora_network:
+    driver: bridge

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkora-frontend
+  labels:
+    app: linkora-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: linkora-frontend
+  template:
+    metadata:
+      labels:
+        app: linkora-frontend
+    spec:
+      containers:
+      - name: linkora-frontend
+        image: linkora/frontend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: "http://linkora-backend-service:4000/api/v1"
+        - name: NEXTAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: linkora-secrets
+              key: nextauth-secret
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkora-frontend-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: linkora-frontend

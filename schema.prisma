@@ -1,0 +1,303 @@
+// Linkora - AI-Powered Manufacturing & Supply Chain Intelligence Platform
+// Prisma Schema Definition
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  MANUFACTURER
+  SUPPLIER
+  LOGISTICS_PARTNER
+  BUYER
+  ADMIN
+}
+
+enum Industry {
+  MANUFACTURING
+  AUTOMOTIVE
+  ELECTRONICS
+  STEEL
+  FMCG
+  TEXTILES
+  OTHER
+}
+
+enum POStatus {
+  PENDING
+  APPROVED
+  SHIPPED
+  DELIVERED
+  REJECTED
+}
+
+enum ShipmentStatus {
+  SCHEDULED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  DELAYED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PredictionType {
+  DEMAND_FORECAST
+  SMART_INVENTORY
+  SUPPLIER_RISK
+  PRICE_FORECAST
+  ROUTE_OPTIMIZATION
+}
+
+enum SubscriptionTier {
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  role          UserRole       @default(BUYER)
+  phoneNumber   String?
+  companyId     String?
+  company       Company?       @relation(fields: [companyId], references: [id])
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  reviews       Review[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([email])
+  @@index([role])
+}
+
+model Company {
+  id              String          @id @default(uuid())
+  companyName     String
+  industry        Industry
+  gstNumber       String          @unique
+  address         String
+  city            String
+  country         String          @default("India")
+  isVerified      Boolean         @default(false)
+  rating          Float           @default(5.0)
+  reviewCount     Int             @default(0)
+  certifications  String[]        @default(["ISO 9001"])
+  users           User[]
+  products        Product[]       @relation("SupplierProducts")
+  inventories     Inventory[]
+  buyerOrders     PurchaseOrder[] @relation("BuyerOrders")
+  supplierOrders  PurchaseOrder[] @relation("SupplierOrders")
+  shipments       Shipment[]      @relation("LogisticsShipments")
+  subscriptions   Subscription[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([gstNumber])
+  @@index([industry])
+}
+
+model Product {
+  id            String         @id @default(uuid())
+  supplierId    String
+  supplier      Company        @relation("SupplierProducts", fields: [supplierId], references: [id], onDelete: Cascade)
+  name          String
+  category      String
+  description   String?
+  price         Decimal        @db.Decimal(12, 2)
+  currency      String         @default("INR")
+  moq           Int            @default(1)
+  stockQuantity Int            @default(0)
+  unit          String         @default("units")
+  leadTimeDays  Int            @default(7)
+  rating        Float          @default(5.0)
+  isActive      Boolean        @default(true)
+  orderItems    OrderItem[]
+  inventories   Inventory[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([supplierId])
+  @@index([category])
+}
+
+model Inventory {
+  id                String    @id @default(uuid())
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId         String?
+  product           Product?  @relation(fields: [productId], references: [id])
+  itemName          String
+  category          String    // Raw Materials, Finished Goods, Warehouse Stock
+  stock             Int       @default(0)
+  minThreshold      Int       @default(10)
+  maxThreshold      Int       @default(1000)
+  unit              String    @default("units")
+  warehouseLocation String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([companyId])
+}
+
+model PurchaseOrder {
+  id              String      @id @default(uuid())
+  poNumber        String      @unique
+  manufacturerId  String
+  manufacturer    Company     @relation("BuyerOrders", fields: [manufacturerId], references: [id])
+  supplierId      String
+  supplier        Company     @relation("SupplierOrders", fields: [supplierId], references: [id])
+  totalAmount     Decimal     @db.Decimal(14, 2)
+  currency        String      @default("INR")
+  status          POStatus    @default(PENDING)
+  deliveryDueDate DateTime
+  items           OrderItem[]
+  shipments       Shipment[]
+  payments        Payment[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([poNumber])
+  @@index([status])
+}
+
+model OrderItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id])
+  productName     String
+  quantity        Int
+  unitPrice       Decimal       @db.Decimal(12, 2)
+  totalPrice      Decimal       @db.Decimal(14, 2)
+
+  @@index([purchaseOrderId])
+}
+
+model Shipment {
+  id                  String         @id @default(uuid())
+  trackingNumber      String         @unique
+  purchaseOrderId     String
+  purchaseOrder       PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id])
+  logisticsPartnerId  String?
+  logisticsPartner    Company?       @relation("LogisticsShipments", fields: [logisticsPartnerId], references: [id])
+  carrierName         String
+  origin              String
+  destination         String
+  status              ShipmentStatus @default(SCHEDULED)
+  routeType           String         @default("Fastest Route (AI)")
+  distanceKm          Float
+  costEstimated       Decimal        @db.Decimal(12, 2)
+  currentCheckpoint   String?
+  progressPercent     Float          @default(0.0)
+  latitude            Float?
+  longitude           Float?
+  estimatedArrival    DateTime
+  actualArrival       DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([trackingNumber])
+  @@index([status])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  amount          Decimal       @db.Decimal(14, 2)
+  currency        String        @default("INR")
+  paymentStatus   PaymentStatus @default(PENDING)
+  gateway         String        @default("Razorpay") // Razorpay, Stripe
+  transactionRef  String?       @unique
+  gstAmount       Decimal       @db.Decimal(12, 2)
+  subtotal        Decimal       @db.Decimal(14, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([purchaseOrderId])
+  @@index([transactionRef])
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  targetId    String   // Supplier Company ID
+  rating      Int      @default(5)
+  comment     String
+  createdAt   DateTime @default(now())
+
+  @@index([targetId])
+}
+
+model AIPrediction {
+  id              String         @id @default(uuid())
+  predictionType  PredictionType
+  headline        String
+  summary         String
+  confidence      Int            // 0 - 100%
+  recommendation  String
+  metricTag       String
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+
+  @@index([predictionType])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String   @default("INFO")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  performedBy String
+  role        String
+  details     String
+  ipAddress   String?
+  timestamp   DateTime @default(now())
+
+  @@index([action])
+}
+
+model Subscription {
+  id            String           @id @default(uuid())
+  companyId     String
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tier          SubscriptionTier @default(GROWTH)
+  priceMonthly  Decimal          @db.Decimal(10, 2)
+  isActive      Boolean          @default(true)
+  autoRenew     Boolean          @default(true)
+  startDate     DateTime         @default(now())
+  nextRenewal   DateTime
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([companyId])
+}

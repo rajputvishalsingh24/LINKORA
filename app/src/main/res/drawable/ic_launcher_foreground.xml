@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Glowing accent lines for connected logistics -->
+    <path
+        android:pathData="M34,54 L54,34 L74,54 L54,74 Z"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#1538BDF8" />
+
+    <!-- Isometric connected factory & warehouse cube / link node -->
+    <!-- Top Face -->
+    <path
+        android:pathData="M54,30 L72,40.5 L54,51 L36,40.5 Z"
+        android:fillColor="#38BDF8" />
+
+    <!-- Left Face -->
+    <path
+        android:pathData="M36,43 L52,52 L52,72 L36,63 Z"
+        android:fillColor="#0284C7" />
+
+    <!-- Right Face -->
+    <path
+        android:pathData="M56,52 L72,43 L72,63 L56,72 Z"
+        android:fillColor="#0369A1" />
+
+    <!-- Center AI Pulse Core -->
+    <path
+        android:pathData="M54,47 A4,4 0 1,1 54,46.99 Z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Upward Trend / Predict arrow -->
+    <path
+        android:pathData="M48,68 L54,62 L60,68"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Supply Chain Connector Nodes -->
+    <path
+        android:pathData="M31,40 A3,3 0 1,1 31,39.99 Z"
+        android:fillColor="#E0F2FE" />
+    <path
+        android:pathData="M77,40 A3,3 0 1,1 77,39.99 Z"
+        android:fillColor="#E0F2FE" />
+    <path
+        android:pathData="M54,77 A3,3 0 1,1 54,76.99 Z"
+        android:fillColor="#E0F2FE" />
+</vector>
